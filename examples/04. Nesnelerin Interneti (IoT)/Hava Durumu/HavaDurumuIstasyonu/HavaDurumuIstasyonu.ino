@@ -27,13 +27,13 @@
 #include <ArduinoJson.h>  // ArduinoJson kütüphanesini ekleyin, yüklü değilse Kütüphane Yöneticisi'nden yükleyin.
 
 // WiFi bilgileri
-const char* ssid = "abdullah5G";          // "wifi_isminiz" yazan yere wifi adınızı giriniz.
-const char* password = "abdtem69";     // "wifi_sifreniz" yazan yere wifi şifrenizi giriniz.
+const char* ssid = "wifi_isminiz";          // "wifi_isminiz" yazan yere wifi adınızı giriniz.
+const char* password = "wifi_sifreniz";     // "wifi_sifreniz" yazan yere wifi şifrenizi giriniz.
 
 // OpenWeather API yapılandırması
-String apiKey = "f19b728e73cc77d3c3a07e5525f626c9";          // "api_anahtariniz" yazan yere OpenWeather'dan aldığınız api anahtarını giriniz.
-String sehir = "Ankara";                     // "sehir" yazan yere yaşadığınız şehri giriniz. (Örnek: Denizli)
-String ulkeKodu = "TR";              // "ulke_kodu" yazan yere ülke kodunuzu giriniz. (Örnek: Türkiye için "TR")
+String apiKey = "api_anahtariniz";          // "api_anahtariniz" yazan yere OpenWeather'dan aldığınız api anahtarını giriniz.
+String sehir = "sehir";                     // "sehir" yazan yere yaşadığınız şehri giriniz. (Örnek: Denizli)
+String ulkeKodu = "ulke_kodu";              // "ulke_kodu" yazan yere ülke kodunuzu giriniz. (Örnek: Türkiye için "TR")
 String birimler = "metric";                 // "santigrat için "metric", Fahrenheit için "imperial" yazınız.
 
 // OpenWeatherMap API isteği için oluşturulan URL
