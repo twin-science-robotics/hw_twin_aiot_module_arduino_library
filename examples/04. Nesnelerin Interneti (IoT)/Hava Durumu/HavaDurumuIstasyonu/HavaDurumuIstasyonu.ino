@@ -4,7 +4,7 @@
   Açıklama:
   Bu örnek, Twin AIoT kartınızı basit bir hava istasyonuna dönüştürür.
   Yerel Wi-Fi ağınıza bağlanır, OpenWeatherMap servisinden anlık hava durumu
-  verilerini çeker ve bu bilgileri Seri Port Ekranı'nda gösterir.
+  verilerini çeker ve bu bilgileri Serial Monitor'de gösterir.
   
   Yapılacaklar:
   1. https://openweathermap.org/ adresinden OpenWeather'a ücretsiz üye olun.
@@ -13,6 +13,8 @@
   Bu siteden bilgi çekmek için ihtiyaç duyacağınız benzersiz bir anahtardır. Bu anahtarı kopyalayıp koddaki "api_anahtariniz" yazan yere yapıştırınız.
   4. Gerekli kütüphaneler yüklü değilse yükleyiniz. Library Manager'dan kütüphane ismini yazarak yükleyebilirsiniz.
   5. Gerekli diğer bilgileri doldurunuz. Wifi adı, WiFi şifresi, İl, Ülke Kodu, birim
+
+  Not : Serial Monitor'ün aktif olması için Tools sekmesinden "USB CDC on Boot" seçeneğini Enabled olarak seçmelisiniz.
 
   https://github.com/twin-science-robotics/hw_twin_aiot_module_arduino_library
 
@@ -25,13 +27,13 @@
 #include <ArduinoJson.h>  // ArduinoJson kütüphanesini ekleyin, yüklü değilse Kütüphane Yöneticisi'nden yükleyin.
 
 // WiFi bilgileri
-const char* ssid = "wifi_isminiz";          // "wifi_isminiz" yazan yere wifi adınızı giriniz.
-const char* password = "wifi_sifreniz";     // "wifi_sifreniz" yazan yere wifi şifrenizi giriniz.
+const char* ssid = "abdullah5G";          // "wifi_isminiz" yazan yere wifi adınızı giriniz.
+const char* password = "abdtem69";     // "wifi_sifreniz" yazan yere wifi şifrenizi giriniz.
 
 // OpenWeather API yapılandırması
-String apiKey = "api_anahtariniz";          // "api_anahtariniz" yazan yere OpenWeather'dan aldığınız api anahtarını giriniz.
-String sehir = "sehir";                     // "sehir" yazan yere yaşadığınız şehri giriniz. (Örnek: Denizli)
-String ulkeKodu = "ulke_kodu";              // "ulke_kodu" yazan yere ülke kodunuzu giriniz. (Örnek: Türkiye için "TR")
+String apiKey = "f19b728e73cc77d3c3a07e5525f626c9";          // "api_anahtariniz" yazan yere OpenWeather'dan aldığınız api anahtarını giriniz.
+String sehir = "Ankara";                     // "sehir" yazan yere yaşadığınız şehri giriniz. (Örnek: Denizli)
+String ulkeKodu = "TR";              // "ulke_kodu" yazan yere ülke kodunuzu giriniz. (Örnek: Türkiye için "TR")
 String birimler = "metric";                 // "santigrat için "metric", Fahrenheit için "imperial" yazınız.
 
 // OpenWeatherMap API isteği için oluşturulan URL
