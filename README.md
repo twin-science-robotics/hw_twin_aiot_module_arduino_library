@@ -1,1 +1,2 @@
-This library is for Twin AIoT module to use in Arduino IDE
+Bu kütüphane, Arduino IDE'de Twin AIoT modülü ile yapılabilecek örnek deneyleri içermektedir 
+
