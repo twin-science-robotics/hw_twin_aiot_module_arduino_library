@@ -19,6 +19,8 @@
   8. Ardından sol menüde yazan "Devices" yazan yere gidin. "New Device" -> "From template" seçeneğini seçin ve az önce oluşturduğunuz şablonu seçin.
   9. Cihazı oluşturduğunuzda otomatik olarak size BLYNK_TEMPLATE_ID, BLYNK_TEMPLATE_NAME, BLYNK_AUTH_TOKEN bilgilerini gösterecektir. Bunları kopyalayın ve koddaki ilgili yerlere yapıştırın.
   10. Kodda gerekli diğer bilgileri doldurunuz. Wifi adı, WiFi şifresi
+  11. Servo pinini ilgili yerden değiştirebilirsiniz.
+  12. Bu kodun çalışması içi servo motorun "coding" modda olması gerekmektedir.
   
   Not: Aynı template'e Blynk mobil uygulamasından da ulaşabilirsiniz.
 
