@@ -1,2 +1,2 @@
-Bu kütüphane, Arduino IDE'de Twin AIoT modülü ile yapılabilecek örnek deneyleri içermektedir 
+Bu kutuphane, Arduino IDE'de Twin AIoT modulu ile yapilabilecek ornek deneyleri icermektedir. 
 
