@@ -1,31 +1,36 @@
 /*
   Google Asistan ile Akıllı Aydınlatma
 
-  Bu kod, Arduino IoT Cloud ve google home uygulamalarını kullanarak 
-  Twin AIoT kartına bağlı ledi ve RGB ledi akıllı hale getirir.
-
+  Bu kod, Arduino IoT Cloud ve Google Home uygulamalarını kullanarak 
+  Twin AIoT modülüne bağlı bir ledi ve üzerindeki RGB ledi akıllı hale getirir.
+  
   Yapılacaklar:
-  1. İlk olarak Arduino AIoT Cloud hesabı oluşturunuz ve giriş yapınız.
+  1. İlk olarak Arduino AIoT Cloud hesabı oluşturunuz ve giriş yapınız. https://cloud.arduino.cc/  -> Get Started for free
   2. Sol taraftaki menüden "Things" seçeneğine tıklayınız.
   3. Yeni bir things oluşturunuz.
   4. Açılan sayfada sağ taraftaki "Associated Device" yazan yerdeki bağlantıya tıklayınız.
   5. "SET UP NEW DEVICE" yazan yere basınız. "Third party device" seçin. ESP32'yi ve aşağıdan ESP32S3 Dev Module seçeneğini seçiniz.
-  6. Cihazınıza istediğiniz bir ismi veriniz. "DOWNLOAD PDF" e basarak bilgileri kaydediniz. Burada "Device ID" ve "Secret Key" bilgilerini kodda ilgili yerlere giriniz.
-  7. WiFi bilgilerinizi de ilgili yerlere giriniz.
-  8. Ardından yine sağ taraftaki bölümden "Smart Home integration" yazan yere basınız ve Google Home bağlantısını yapınız.
+  6. Cihazınıza istediğiniz bir ismi veriniz. "DOWNLOAD PDF" e basarak bilgileri kaydediniz. 
+     - Buradaki "Device ID" ve "Secret Key" bilgilerini aşağıdaki kodda ilgili yerlere giriniz.
+  7. WiFi bilgilerinizi de aşağıdaki ilgili yerlere giriniz.
+  8. Ardından yine Arduino AIoT Cloud sayfasında sağ taraftaki bölümden "Smart Home integration" yazan yere basınız ve Google Home bağlantısını yapınız.
   9. Yine aynı sayfadaki Cloud Variables-ADD butonuna basınız ve aşağıdaki değişkenleri ekleyiniz:
-    - Name: light, Variable Type: Google --> Light, Variable Permission: Read & Write, Variable Update Policy: On change
-    - Name: RGB, Variable Type: Google --> Colored Light, Variable Permission: Read & Write, Variable Update Policy: On change
+    - Name: light, Variable Type: Smart home -> Light, Variable Permission: Read & Write, Variable Update Policy: On change
+    - Name: rgb, Variable Type: Smart home -> Colored Light, Variable Permission: Read & Write, Variable Update Policy: On change
   10. Telefonunuza Google Home uygulamasını indiriniz. Giriş yapınız.
   11. Ayarlar bölümünden "Google ile çalışır" a basınız. Aramalara Arduino yazarak hesabınızı bağlayınız.
-  12. light ve RGB cihazlarını ekleyiniz.
-  13. Şimdi uygulamadan çıkıp günlük kullanımda "OK, Google Işığı aç" dediğinizde led yanacaktır. "OK, Google RGB'yi kırmızıya ayarla" dediğinizde RGB led kırmızı yanacaktır.
-
+  12. Cihazlar bölümünden light ve rgb cihazlarını ekleyiniz, cihaz isimlerini 'Ofis lambası' , 'Oturma odası lambası' şeklinde özelleştirebilirsiniz.
+  13. Şimdi uygulamadan çıkıp günlük kullanımda "OK, Google Işığı aç" dediğinizde led yanacaktır.
+   -veya "OK, Google rgb'yi kırmızıya ayarla" dediğinizde RGB led kırmızı yanacaktır. 
+   Bağladığınız LED 'e veya RGB LED'e akıllı evinizdeki bir odayı ayarlar bölümünden atayabilirsiniz. 
+   Böylece 'Ofisteki lambayı aç' dediğinizde led yanacaktır veya 'banyodaki lambanın rengini mavi yapar mısın?' dediğinizde RGB leddeki renk  değişimi görebilirsiniz.
+   Ayrıca Google Home uygulaması ile de RGB ledin parlaklık ayarını ve renk seçimini yapabilir, led'i açıp kapatabilirsiniz.
+   
   Not: Google Asistan ayarlarını Google Gemini olarak kullanmanız önerilir. Telefon ayarlarından değiştirebilirsiniz.
 
   https://github.com/twin-science-robotics/hw_twin_aiot_module_arduino_library
 
-  18 Ağustos 2025
+  25 Ağustos 2025
   Twin Science & Robotics
 */
 
@@ -40,14 +45,14 @@
 
 const char SSID[] = "wifi_isminiz";             // "wifi_isminiz" yazan yere wifi adınızı giriniz. 
 const char PASS[] = "wifi_sifreniz";            // "wifi_sifreniz" yazan yere wifi şifrenizi giriniz.                 
-const char DEVICE_KEY[] = "Secret_Key";         // Arduino Cloud'dan aldığınız Secret Key buraya giriniz.
-const char DEVICE_LOGIN_NAME[] = "Device_ID";   // Arduino Cloud'dan aldığınız Device ID buraya giriniz.
+const char DEVICE_KEY[] = "Secret Key";         // "Secret Key" yazan yere Arduino Cloud'dan aldığınız Secret Key i giriniz.
+const char DEVICE_LOGIN_NAME[] = "Device ID";   // "Device ID" yazan yere Arduino Cloud'dan aldığınız Device ID yi giriniz.
 
 CRGB leds[LED_SAYISI];            // Bir RGB LED nesnesi oluşturunuz.
 
 // Bulut Değişkenleri (Google Home Uyumlu)
-CloudLight light;                 // Led değişkeni
-CloudColoredLight rGB;            // RGB değişkeni
+CloudLight light;                 // Arduino IoT Cloud 'da tanımladığımız light değişkeni
+CloudColoredLight rgb;            // Arduino IoT Cloud 'da tanımladığımız rgb değişkeni
 
 const int ledPin = 35;            // Twin AIoT kartında D6 çıkışının bağlı olduğu pin.
 // const int ledPin = 36;         // Twin AIoT kartında D9 çıkışının bağlı olduğu pin. D9 çıkışını kullanmak için bu satırı yorumdan kaldırın.
@@ -55,16 +60,23 @@ const int ledPin = 35;            // Twin AIoT kartında D6 çıkışının bağ
 
 // "Işık" değişkeni durumu değiştiğinde bu fonksiyon çalışır.
 void LedDurumuDegisimi() {
-  bool durum = light;             // Işık değikeninin durum bilgisi alınır.
-  digitalWrite(ledPin, durum);    // D6 pinindeki led durum bilgisine göre ayarlanır.
+  bool durum = light;             // Işık değişkeninin durum bilgisi alınır.
+  digitalWrite(ledPin, durum);    // ledpin'ine bağlı olan led'in yanma durumu, led durum bilgisine göre ayarlanır.
 }
 
 // "RGB" değişkeni bilgisi geldiğinde bu fonksiyon çalışır.
 void RGBDurumuDegisimi() {
-  uint8_t r, g, b;                // Renk bilgilerini almak için değişken tanımla
-  rGB.getValue().getRGB(r, g, b); // Renk bilgilerini alma fonksiyonu
-  leds[0] = CRGB(r, g, b);        // Gelen değerlere göre LED'e renk ataması yapılır.
-  FastLED.show();                 // Renkleri LED'e uygula, ayarlanan RGB değerlerini RGB LED'de göster
+  uint8_t r, g, b;                  // Renk bilgilerini almak için değişken tanımla
+
+  if(rgb.getSwitch()){              // Eğer RGB led açıksa
+    rgb.getValue().getRGB(r, g, b); // Renk bilgilerini alma fonksiyonu
+    leds[0] = CRGB(r, g, b);        // Gelen değerlere göre LED'e renk ataması yapılır.
+    FastLED.show();                 // Renkleri LED'e uygula, ayarlanan RGB değerlerini RGB LED'de göster
+  }
+  else{
+    leds[0] = CRGB(0, 0, 0);        // RGB'yi söndür
+    FastLED.show();                 
+  }
 }
 
 // Değişkenleri ve bağlantıyı başlatan fonksiyon
@@ -72,7 +84,7 @@ void ozellikleriBaslat(){
   ArduinoCloud.setBoardId(DEVICE_LOGIN_NAME);
   ArduinoCloud.setSecretDeviceKey(DEVICE_KEY);
   ArduinoCloud.addProperty(light, READWRITE, ON_CHANGE, LedDurumuDegisimi);
-  ArduinoCloud.addProperty(rGB, READWRITE, ON_CHANGE, RGBDurumuDegisimi);
+  ArduinoCloud.addProperty(rgb, READWRITE, ON_CHANGE, RGBDurumuDegisimi);
 }
 
 WiFiConnectionHandler ArduinoIoTPreferredConnection(SSID, PASS);  // WiFi bağlantı yöneticisi
