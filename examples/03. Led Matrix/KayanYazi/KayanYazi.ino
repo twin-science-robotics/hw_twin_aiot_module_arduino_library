@@ -85,7 +85,7 @@ void setup() {
 }
 
 void loop() {
-  metniKaydir("Twin AIoT");   // İstediğimiz metni sonsuz döngüde kaydırıyoruz. Buraya kaydırmak istediğiniz metni giriniz.
+  metniKaydir("MERHABA TWINNER");   // İstediğimiz metni sonsuz döngüde kaydırıyoruz. Buraya kaydırmak istediğiniz metni giriniz.
   delay(500);                 // Kaydırılma bittikten sonra tekrar başlamadan önce yarım saniye bekleme
 }
 
@@ -134,7 +134,7 @@ void metniKaydir(String metin) {
         uint8_t sonrakiPart = reverseBits(sonrakiKarakterDeseni[row]) << (8 - shift);
         buffer[row] = mevcutPart | sonrakiPart;
       }
-      karakteri_goster(buffer, 100); // Girilen metnin kayma hızı, hızlandırmak için süreyi azaltabilirsiniz.
+      karakteri_goster(buffer, 100); // Girilen metnin kayma hızı (örnek: 100 ms), kayma hızını artırmak için süreyi azaltabilirsiniz.
     }
   }
 }
