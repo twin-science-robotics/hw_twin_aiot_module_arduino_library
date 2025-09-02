@@ -30,11 +30,11 @@
   Multiplexer (Çoklayıcı) Nedir?
   Multiplexer, birden fazla dijital sinyal hattından (kanal) hangisinin kullanılacağını
   seçmemizi sağlayan bir dijital anahtar gibidir. Twin AIoT kartındaki D4, D8, D12
-  gibi portları aktif etmek için kullanılır. Bu pinler default olarak analog modda kullanılmaktadır.
+  girişlerini aktif etmek için kullanılır. Bu pinler başlangıçta analog modda kullanılmaktadır.
 
   'S' pinleri (s1, s2, s3), multiplexer'ın "düğmeleri" gibidir. Bu pinlere HIGH (1)
-  veya LOW (0) sinyali göndererek hangi portun aktif olacağını seçeriz. Bu projede,
-  DHT11 sensörünün bağlı olduğu D4 portunu aktif etmek için `s1_pini` HIGH durumuna
+  veya LOW (0) sinyali göndererek girişin analog mu dijital mi olacağını seçeriz. Bu projede,
+  DHT11 sensörü dijital giriş kullanacağından dolayı D4 dijital girişini aktif etmek için `s1_pini` HIGH durumuna
   getirilmektedir.
 
   Twin AIoT Kartında kullanmak istediğiniz girişe göre aşağıdaki pin ayarlamalarını yapabilirsiniz.
@@ -49,7 +49,7 @@
   
   https://github.com/twin-science-robotics/hw_twin_aiot_module_arduino_library
 
-  2 Ağustos 2025
+  2 Eylül 2025
   Twin Science & Robotics
 */
 
