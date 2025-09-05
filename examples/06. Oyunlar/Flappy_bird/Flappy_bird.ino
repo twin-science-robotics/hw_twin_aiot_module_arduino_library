@@ -26,6 +26,8 @@
 #define TOUCHPAD_THRESHOLD 22000  // Eşik değeri
 #define TOUCH_PIN 13              // Touchpad'in bağlı olduğu pin
 
+#define MAX_KARAKTER_LIMITI 40
+
 // Oyun Ayarları
 const float GRAVITY = 0.5;                // Kuşun aşağı doğru ne kadar hızlı çekileceğini belirler. Yüksek değer = daha hızlı düşüş.
 const float JUMP_FORCE = -1.4;            // Kuşun zıplama kuvveti. Negatif olması, Y ekseninde yukarı gitmesini sağlar.
@@ -53,12 +55,66 @@ int pipeGapY[NUM_PIPES];                  // Engellerin boşluklarının dikey (
 int score = 0;                            // Oyuncunun mevcut skoru.
 bool gameOver = true;                     // Oyunun bitip bitmediğini kontrol eden bayrak (flag). Başlangıçta 'true' başlar.
 int currentPipeSpeed;                     // Engellerin o anki hızını (ms bekleme süresi) tutan değişken. Oyun ilerledikçe değeri düşer.
+bool isGameStarting = false;              // Oyunun başlangıç anındaki gecikme durumunu kontrol eden bayrak.
 
 // Zamanlayıcılar
 unsigned long lastBirdUpdateTime = 0;     // Kuş hareketinin en son güncellendiği zaman.
 unsigned long lastPipeMoveTime = 0;       // Engellerin en son hareket ettiği zaman.
 unsigned long lastTouchTime = 0;          // En son dokunma algılandığı zaman.
 const unsigned long touchDebounce = 150;  // Dokunma sinyali sıçramalarını önlemek ve art arda basmaları engellemek için gereken bekleme süresi (ms).
+const int INITIAL_PIPE_DELAY = 1000;      // Engellerin oyuna dahil olmadan önceki bekleme süresi (ms)
+
+struct LEDMatrixkarakter {
+  char karakter;      // karakterin kendisi
+  uint8_t patern[8];  // karakterin paterni (dizisi)
+};
+
+// Her karakter için belirli bir patern vardır, bu patern bilgisine göre hangi ledin yanıp yanmayacağına karar verilir.
+const LEDMatrixkarakter LEDMatrixkarakterler[] = {
+  // Harfler
+  { 'A', {0x18, 0x24, 0x42, 0x7E, 0x42, 0x42, 0x42, 0x00} },
+  { 'B', {0x7C, 0x42, 0x42, 0x7C, 0x42, 0x42, 0x7C, 0x00} },
+  { 'C', {0x3C, 0x42, 0x40, 0x40, 0x40, 0x42, 0x3C, 0x00} },
+  { 'D', {0x78, 0x44, 0x42, 0x42, 0x42, 0x44, 0x78, 0x00} },
+  { 'E', {0x7E, 0x40, 0x40, 0x7C, 0x40, 0x40, 0x7E, 0x00} },
+  { 'F', {0x7E, 0x40, 0x40, 0x7C, 0x40, 0x40, 0x40, 0x00} },
+  { 'G', {0x3C, 0x42, 0x40, 0x40, 0x46, 0x42, 0x3C, 0x00} },
+  { 'H', {0x42, 0x42, 0x42, 0x7E, 0x42, 0x42, 0x42, 0x00} },
+  { 'I', {0x7E, 0x18, 0x18, 0x18, 0x18, 0x18, 0x7E, 0x00} },
+  { 'J', {0x7E, 0x02, 0x02, 0x02, 0x02, 0x42, 0x3C, 0x00} },
+  { 'K', {0x42, 0x44, 0x48, 0x70, 0x48, 0x44, 0x42, 0x00} },
+  { 'L', {0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x7E, 0x00} },
+  { 'M', {0x42, 0x66, 0x5A, 0x42, 0x42, 0x42, 0x42, 0x00} },
+  { 'N', {0x42, 0x62, 0x52, 0x4A, 0x46, 0x42, 0x42, 0x00} },
+  { 'O', {0x3C, 0x42, 0x42, 0x42, 0x42, 0x42, 0x3C, 0x00} },
+  { 'P', {0x7C, 0x42, 0x42, 0x7C, 0x40, 0x40, 0x40, 0x00} },
+  { 'Q', {0x3C, 0x42, 0x42, 0x42, 0x4A, 0x46, 0x3C, 0x00} },
+  { 'R', {0x7C, 0x42, 0x42, 0x7C, 0x48, 0x44, 0x42, 0x00} },
+  { 'S', {0x3C, 0x42, 0x40, 0x3C, 0x02, 0x42, 0x3C, 0x00} },
+  { 'T', {0x7E, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x00} },
+  { 'U', {0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x3C, 0x00} },
+  { 'V', {0x42, 0x42, 0x42, 0x42, 0x42, 0x24, 0x18, 0x00} },
+  { 'W', {0x42, 0x42, 0x42, 0x42, 0x5A, 0x66, 0x42, 0x00} },
+  { 'X', {0x42, 0x42, 0x24, 0x18, 0x24, 0x42, 0x42, 0x00} },
+  { 'Y', {0x42, 0x42, 0x42, 0x24, 0x18, 0x18, 0x18, 0x00} },
+  { 'Z', {0x7E, 0x02, 0x04, 0x08, 0x10, 0x20, 0x7E, 0x00} },
+  
+  // Rakamlar
+  { '0', {0x3C, 0x46, 0x4A, 0x52, 0x62, 0x42, 0x3C, 0x00} },
+  { '1', {0x08, 0x18, 0x28, 0x08, 0x08, 0x08, 0x3E, 0x00} },
+  { '2', {0x3C, 0x42, 0x02, 0x0C, 0x30, 0x40, 0x7E, 0x00} },
+  { '3', {0x3C, 0x42, 0x02, 0x1C, 0x02, 0x42, 0x3C, 0x00} },
+  { '4', {0x04, 0x0C, 0x14, 0x24, 0x7E, 0x04, 0x04, 0x00} },
+  { '5', {0x7E, 0x40, 0x7C, 0x02, 0x02, 0x42, 0x3C, 0x00} },
+  { '6', {0x3C, 0x40, 0x7C, 0x42, 0x42, 0x42, 0x3C, 0x00} },
+  { '7', {0x7E, 0x42, 0x04, 0x08, 0x10, 0x10, 0x10, 0x00} },
+  { '8', {0x3C, 0x42, 0x42, 0x3C, 0x42, 0x42, 0x3C, 0x00} },
+  { '9', {0x3C, 0x42, 0x42, 0x3E, 0x02, 0x42, 0x3C, 0x00} },
+  
+  { ' ', {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00} }  // Boş dizi
+};
+
+const size_t karaktersayisi = sizeof(LEDMatrixkarakterler) / sizeof(LEDMatrixkarakter);
 
 uint8_t screen[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
@@ -91,9 +147,20 @@ void loop() {
   }
 
   // Engel Hareketi Güncellemesi
-  if (!gameOver && (millis() - lastPipeMoveTime > currentPipeSpeed)) {
-    lastPipeMoveTime = millis();
-    updatePipes();
+  if (!gameOver) {
+    if (isGameStarting) {
+      // Eğer oyun "yeni başladı" durumundaysa, sadece 1 saniye bekle.
+      if (millis() - lastPipeMoveTime > INITIAL_PIPE_DELAY) {
+        isGameStarting = false;       // Gecikme durumunu kapat. 
+        lastPipeMoveTime = millis();  // Engellerin normal hareketi için zamanlayıcıyı şimdi sıfırla.
+      }
+    } else {
+      // Gecikme bittikten sonra engelleri normal hızda hareket ettir.
+      if (millis() - lastPipeMoveTime > currentPipeSpeed) {
+        lastPipeMoveTime = millis();
+        updatePipes();
+      }
+    }
   }
 
   drawScreen(); // Ekranı Çiz
@@ -105,6 +172,8 @@ void resetGame() {
   score = 0;
   gameOver = false;
   currentPipeSpeed = INITIAL_PIPE_SPEED;
+  isGameStarting = true;        // Başlangıç gecikmesini aktif et.
+  lastPipeMoveTime = millis();  // Gecikme süresini ölçmek için zamanlayıcıyı sıfırla.
 
   // Tüm engelleri başlangıç konumlarına ayarla
   for (int i = 0; i < NUM_PIPES; i++) {
@@ -126,7 +195,7 @@ void updateBird() {
   // Kuşun engellere çarpıp çarpmadığını kontrol et
   for (int i = 0; i < NUM_PIPES; i++) {
     // Eğer kuş ve engellerden biri aynı X konumundaysa ve kuşun Y konumu engelin boşluğunda değilse, çarpışma var demektir.
-    if (pipeX[i] == BIRD_X_POS) {
+    if (pipeX[i] == BIRD_X_POS || pipeX[i] + 1 == BIRD_X_POS) {
       if (round(birdY) < pipeGapY[i] || round(birdY) >= pipeGapY[i] + PIPE_GAP) {
         endGame();
         return;
@@ -183,6 +252,8 @@ void endGame(){
     Serial.print("Final Skor: ");
     Serial.println(score);
     Serial.println("Tekrar oynamak için dokunun...");
+    String skorMetni = "SKOR " + String(score);
+    metniKaydir(skorMetni);
 }
 
 void drawScreen() {
@@ -198,13 +269,18 @@ void drawScreen() {
     if (intBirdY >= 0 && intBirdY < 8) {
       bitSet(screen[intBirdY], 7 - BIRD_X_POS);
     }
-    
     // Tüm Engelleri Çiz
     for (int i = 0; i < NUM_PIPES; i++) {
-      if (pipeX[i] >= 0 && pipeX[i] < 8) { // Sadece ekranda görünenleri çiz
-        for (int y = 0; y < 8; y++) {
-          if (y < pipeGapY[i] || y >= pipeGapY[i] + PIPE_GAP) {
+      // Sadece ekranda görünenleri çiz
+      for (int y = 0; y < 8; y++) {
+        if (y < pipeGapY[i] || y >= pipeGapY[i] + PIPE_GAP) {
+          // Engelin birinci sütununu çiz
+          if (pipeX[i] >= 0 && pipeX[i] < 8) {
             bitSet(screen[y], 7 - pipeX[i]);
+          }
+          // Engelin ikinci sütununu çiz
+          if (pipeX[i] + 1 >= 0 && pipeX[i] + 1 < 8) {
+            bitSet(screen[y], 7 - (pipeX[i] + 1));
           }
         }
       }
@@ -221,6 +297,56 @@ void refreshMatrix() {
     shiftOutAll(colData, rowData);
     delay(1);
     shiftOutAll(0xFF, 0x00);
+  }
+}
+
+// Led matrix'te gösterilecek karakteri belirli bir süre boyunca gösterir.
+void karakteri_goster(const uint8_t* frame, int sureMs) {
+  unsigned long start = millis();
+  while (millis() - start < sureMs) {
+    for (int row = 0; row < 8; row++) {
+      uint8_t rowData = (1 << row);
+      uint8_t colData = ~frame[row]; 
+      shiftOutAll(colData, rowData);
+      delay(1);
+      shiftOutAll(0x00, 0x00);
+    }
+  }
+}
+
+// Her karakter için gerekli paterni alır
+const uint8_t* paterniAl(char c) {
+  for (size_t i = 0; i < karaktersayisi; i++) {
+    if (LEDMatrixkarakterler[i].karakter == c) {
+      return LEDMatrixkarakterler[i].patern;
+    }
+  }
+  return LEDMatrixkarakterler[karaktersayisi - 1].patern;
+}
+
+// Verilen metni LED matrix üzerinde akıcı bir şekilde kaydırır.
+void metniKaydir(String metin) {
+  if (metin.length() > MAX_KARAKTER_LIMITI) {
+    metin = metin.substring(0, MAX_KARAKTER_LIMITI);
+  }
+
+  String tamMetin = " " + metin + " "; // Başlangıçta ekranın boş girmesi için
+  tamMetin.toUpperCase();
+
+  // Animasyon Döngüsü
+  for (int i = 0; i < tamMetin.length() - 1; i++) {
+    const uint8_t* tamMetinmevcutKarakterDeseni = paterniAl(tamMetin[i]);
+    const uint8_t* sonrakiKarakterDeseni = paterniAl(tamMetin[i+1]);
+
+    for (int shift = 0; shift < 8; shift++) {
+      uint8_t buffer[8];
+      for (int row = 0; row < 8; row++) {
+        uint8_t mevcutPart = reverseBits(tamMetinmevcutKarakterDeseni[row]) >> shift;
+        uint8_t sonrakiPart = reverseBits(sonrakiKarakterDeseni[row]) << (8 - shift);
+        buffer[row] = mevcutPart | sonrakiPart;
+      }
+      karakteri_goster(buffer, 80); // Girilen metnin kayma hızı (örnek: 80 ms), kayma hızını artırmak için süreyi azaltabilirsiniz.
+    }
   }
 }
 
