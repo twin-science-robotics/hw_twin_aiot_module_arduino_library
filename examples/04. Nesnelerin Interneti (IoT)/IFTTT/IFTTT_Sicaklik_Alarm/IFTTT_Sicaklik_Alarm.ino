@@ -26,24 +26,8 @@
   12. IFTTT mobil uygulamasını indirin ve hesabınızla giriş yapın.
   13. Kodu yüklediğinizde 60 saniyede bir kontrol edilip telefonunuza bildirim gönderilecektir.
 
-  DONANIM:
-  Multiplexer (Çoklayıcı) Nedir?
-  Multiplexer, birden fazla dijital sinyal hattından (kanal) hangisinin kullanılacağını
-  seçmemizi sağlayan bir dijital anahtar gibidir. Twin AIoT kartındaki D4, D8, D12
-  girişlerini aktif etmek için kullanılır. Bu pinler başlangıçta analog modda kullanılmaktadır.
-
-  'S' pinleri (s1, s2, s3), multiplexer'ın "düğmeleri" gibidir. Bu pinlere HIGH (1)
-  veya LOW (0) sinyali göndererek girişin analog mu dijital mi olacağını seçeriz. Bu projede,
-  DHT11 sensörü dijital giriş kullanacağından dolayı D4 dijital girişini aktif etmek için `s1_pini` HIGH durumuna
-  getirilmektedir.
-
-  Twin AIoT Kartında kullanmak istediğiniz girişe göre aşağıdaki pin ayarlamalarını yapabilirsiniz.
-
-  D4 için digital pin: 8 --> D4 için s1 pin: 37
-  D8 için digital pin: 11 --> D8 için s2 pin: 38
-  D12 için digital pin: 9 --> D12 için s3 pin: 14
-
-  Not: Sıcaklık nem sensörünü coding modda olması gerekmektedir.
+  Not: Sıcaklık nem sensörünü coding modda olması gerekmektedir. Ayrıca Twin AIoT kartınızdan seçtiğiniz giriş için
+  kodda ilgili pinin "DHT_PIN" ayarlamasını yapın. D4 için 8, D8 için 11, D12 için 9 yazın.
 
   Not : Serial Monitor'ün aktif olması için Tools sekmesinden "USB CDC on Boot" seçeneğini Enabled olarak seçmelisiniz.
   
@@ -55,20 +39,21 @@
 
 #include <WiFi.h>           // Wifi101 kütüphanesini ekleyin, yüklü değilse Kütüphane Yöneticisi'nden yükleyin.
 #include <HTTPClient.h>     // ArduinoHttpClient kütüphanesini ekleyin, yüklü değilse Kütüphane Yöneticisi'nden yükleyin.
-#include <DHT.h>            // DHT sensor library by Adafruit kütüphanesini ekleyin, yüklü değilse Kütüphane Yöneticisi'nden yükleyin.
+#include "DHT11.h"          // Herhangi bir kütüphane indirmenize gerek yok.
 
-// DHT11 sensör ayarları
-#define DHT_PIN 8      // DHT11 pini
-#define DHT_TYPE DHT11 // Sensör tipi: DHT11
+#define DHT_PIN 8           // D4 için 8, D8 için 11, D12 için 9 yazın.
+
+// Mux pinleri
+const int s1_pini = 37;
+const int s2_pini = 38;
+const int s3_pini = 14;
 
 const char* ssid = "wifi_isminiz";      // "wifi_isminiz" yazan yere wifi adınızı giriniz.
 const char* password = "wifi_sifreniz"; // "wifi_sifreniz" yazan yere wifi şifrenizi giriniz.
 
-const int s1_pini = 37; // Multiplexer s1 pini
+String url = "sizin_urlniz";  // sizin_urlniz IFTTT Webhook url'nizi buraya yapıştırın.
 
-DHT dht(DHT_PIN, DHT_TYPE); // DHT sensör nesnesi oluştur
-
-String url = "sizin_urlniz";  // IFTTT Webhook url'nizi buraya yapıştırın.
+DHT11 dht11(DHT_PIN); // DHT sensör nesnesi oluştur
 
 // Zaman değişkenleri
 unsigned long onceki_zaman = 0;
@@ -78,15 +63,36 @@ const unsigned long bekleme_suresi = 60000; // 1 dakika (60000 ms)
 const float max_sicaklik = 25.0;    // Sıcaklık Limiti (°C)
 const float max_nem = 50.0;         // Nem Limiti (%)
 
+// Dijital girişi seçimi
+void digitalPinSecimi(int secilen_pin) {
+  // Önce tüm s pinlerini LOW yaparak resetleyelim
+  pinMode(s1_pini, OUTPUT);
+  pinMode(s2_pini, OUTPUT);
+  pinMode(s3_pini, OUTPUT);
+  digitalWrite(s1_pini, LOW);
+  digitalWrite(s2_pini, LOW);
+  digitalWrite(s3_pini, LOW);
+
+  // Seçilen pine göre doğru s pinini HIGH yap
+  switch (secilen_pin) {
+    case 8: // D4
+      digitalWrite(s1_pini, HIGH);
+      break;
+    case 11: // D8
+      digitalWrite(s2_pini, HIGH);
+      break;
+    case 9: // D12
+      digitalWrite(s3_pini, HIGH);
+      break;
+  }
+}
+
 void setup() {
   Serial.begin(115200); // Seri haberleşmeyi başlat
   Serial.println("\nIFTTT ile Sıcaklık Kontrol");
 
-  pinMode(s1_pini, OUTPUT);     // s1 pinini output olarak ayarlıyoruz.
-  pinMode(DHT_PIN, INPUT);      // DHT pinini input olarak ayarlıyoruz.
-  digitalWrite(s1_pini, HIGH);  // D4 kullanacağımız için s1 pinini HIGH yapıyoruz. 
-  
-  dht.begin(); // DHT sensörünü başlat
+  pinMode(DHT_PIN, INPUT); // DHT pinini input olarak ayarlıyoruz.
+  digitalPinSecimi(DHT_PIN);
 
   WiFi.begin(ssid, password); // WiFi bağlantısını başlat
 
@@ -116,8 +122,8 @@ void olcumYapVeKontrolEt() {
     onceki_zaman = simdiki_zaman;
     
     // DHT11'den sıcaklık ve nem oku
-    float sicaklik = dht.readTemperature();  // Celsius cinsinden
-    float nem = dht.readHumidity();          // Yüzde cinsinden
+    float sicaklik = dht11.readTemperature();  // Celsius cinsinden
+    float nem = dht11.readHumidity();          // Yüzde cinsinden
     
     // Ölçüm sonuçlarını seri port'a yazdır
     Serial.println("--------------------");
