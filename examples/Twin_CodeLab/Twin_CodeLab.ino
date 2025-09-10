@@ -1,5 +1,5 @@
 /*
-  Twin_CodeLab
+  Twin_CodeLab v2.4.2
 
   Bu yazılım Twin CodeLab Web (https://code.twinscience.com/) ya da mobil uygulamaları ile blok kodlama yapabilme imkanı sunan yazılımdır.
   
@@ -9,7 +9,7 @@
 
   https://github.com/twin-science-robotics/hw_twin_aiot_module_arduino_library
 
-  30 Ağustos 2025
+  10 Eylül 2025
   Twin Science & Robotics
  
 */
@@ -319,7 +319,7 @@ void setup() {
   LogoAnimate();
   xTaskCreate(connTask, "ConnectionTask", 4096, NULL, 1, NULL);
   xTaskCreate(bleblinkTask, "bleblinkTask", 4096, NULL, 1, NULL);
-  xTaskCreate(scrollIDTask, "bleblinkTask", 4096, NULL, 1, NULL);
+  xTaskCreate(scrollIDTask, "scrollIDTask", 4096, NULL, 1, NULL);
 
   
   //Serial.println(moduleName);

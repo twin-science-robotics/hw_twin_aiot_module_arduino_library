@@ -37,6 +37,7 @@ public:
 private:
   uint8_t chooseSelect(uint8_t pin);
   uint8_t getActualPin(uint8_t logicalPin,  bool signal_type);
+  uint8_t map_piano(uint8_t pin);
 
   
   void digitalWrite_F();

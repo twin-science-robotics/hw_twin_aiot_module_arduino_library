@@ -311,22 +311,16 @@ void CommandHandler::playNote_F(){
   bleChannel.sent.message_id = PLAYNOTE;
 }
 void CommandHandler::pianoButton_F(){
-  uint32_t touch = 0;
+  uint16_t touch = 0;
   uint8_t response = 0;
-  uint8_t pin = bleChannel.received.message_data[0];
-
-  if(pin == 8)
-    touch = touchRead(1);
-  else if(pin == 9)
-    touch = touchRead(2);
-  else if(pin == 10)
-    touch = touchRead(3);
-  else if (pin == 12)
-    touch = touchRead(4);
-
+  uint8_t pin = map_piano(bleChannel.received.message_data[0]);
+  analogReadResolution(10); //set the resolution to 10 bits (0-1023)
+  pinMode(pin,INPUT_PULLUP);
+  vTaskDelay(pdMS_TO_TICKS(5));
+  touch = analogRead(pin);
   //Serial.println(touch);
 
-  if (touch> TOUCH_THRESHOLD_2) 
+  if (touch < PIANO_THRESHOLD) 
     response = 1;
   else response = 0;
 
@@ -334,8 +328,6 @@ void CommandHandler::pianoButton_F(){
   bleChannel.sent.message_length = 2;
   memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);                 
   bleChannel.sent.message_id = PIANO_BUTTON;
-
-
 }
 
 void CommandHandler::touchPad_F(){
@@ -594,6 +586,15 @@ uint8_t CommandHandler::getActualPin(uint8_t logicalPin,  bool signal_type) {
     }
 }
 
+uint8_t CommandHandler::map_piano(uint8_t pin){
+
+  switch (pin) {
+    case 8: return 1;
+    case 9: return 2;
+    case 10: return 3;
+    case 12: return 4;
+  }
+}
 uint8_t CommandHandler::reverseBits(uint8_t b) {
   b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
   b = (b & 0xCC) >> 2 | (b & 0x33) << 2;

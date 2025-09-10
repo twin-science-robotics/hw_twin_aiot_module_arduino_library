@@ -44,8 +44,9 @@ extern CRGB leds[NUM_LEDS];
 #define S3pin 14 
 
 #define TOUCHPAD_THRESHOLD 22000
-#define TOUCH_THRESHOLD_2 100000
 #define TOUCH_PIN 13
+
+#define PIANO_THRESHOLD 950
 
 #define TRIG_PIN 5 // GPIO connected to HC-SR04 TRIG
 #define ECHO_PIN 6 // GPIO connected to HC-SR04 ECHO
