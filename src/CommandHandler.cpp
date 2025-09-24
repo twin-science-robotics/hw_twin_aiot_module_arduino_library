@@ -1,3 +1,4 @@
+#include "esp32-hal-ledc.h"
 #include "CommandHandler.h"
 
 Servo	servo6;
@@ -138,6 +139,10 @@ void CommandHandler::initTwin_F() {
   if (servo9.attached())  servo9.detach();
   if (servo10.attached()) servo10.detach();
 
+  ledcDetach(D6_output_pin);
+  ledcDetach(D9_output_pin);
+  ledcDetach(D10_output_pin);
+
   if (dc_coding_at_pin_06_ptr)
   {
       delete dc_coding_at_pin_06_ptr;
@@ -249,14 +254,22 @@ void CommandHandler::digitalRead_F() {
 
 void CommandHandler::analogWrite_F(){
   uint8_t pin = getActualPin(bleChannel.received.message_data[0], DIGITAL);
-  pinMode(pin, OUTPUT);
   uint16_t value = bleChannel.received.message_data[1];
   //Serial.println(value);
-  
+  int channel;
+
   value = map(value,0,255,0,4095) + 1 ; 
   if(value > 4095) value = 4095;
 
-  ledcAttach(pin, freq, resolution);
+   switch(pin) {
+        case D6_output_pin:  channel = PWM_CHANNEL_1; break;
+        case D9_output_pin:  channel = PWM_CHANNEL_2; break;
+        case D10_output_pin: channel = PWM_CHANNEL_3; break;
+  }
+
+  pinMode(pin, OUTPUT);
+  ledcDetach(pin);
+  ledcAttachChannel(pin, freq, resolution, channel);
   ledcWrite(pin, value);
   
   bleChannel.sent.message_length = 1;
@@ -300,10 +313,11 @@ void CommandHandler::playNote_F(){
   uint16_t note = bleChannel.received.message_data[1] + (bleChannel.received.message_data[2] << 8);
   uint16_t duration = bleChannel.received.message_data[3] + (bleChannel.received.message_data[4] << 8);
 
-  ledcAttach(pin,2700,8);
+  ledcAttachChannel(pin,2700,8,TONE_CHANNEL);
   ledcWriteTone(pin, note); 
   delay(duration);
   ledcWriteTone(pin, 0);
+  ledcDetach(pin);
 
   bleChannel.sent.message_length = 1;
   uint8_t response_data[1] = {1};  
@@ -435,7 +449,7 @@ void CommandHandler::singleDC_F(){
             if (!dc_coding_at_pin_06_ptr)
             {
                 delete dc_coding_at_pin_06_ptr;
-                dc_coding_at_pin_06_ptr = new TwinDCMotor(1, D6_motor_pin);
+                dc_coding_at_pin_06_ptr = new TwinDCMotor(1, D6_output_pin);
             }
             //Serial.println(motor_dir);
             //Serial.println(motor_speed);
@@ -449,7 +463,7 @@ void CommandHandler::singleDC_F(){
             if (!dc_coding_at_pin_09_ptr)
             {
                 delete dc_coding_at_pin_09_ptr;
-                dc_coding_at_pin_09_ptr = new TwinDCMotor(1, D9_motor_pin);
+                dc_coding_at_pin_09_ptr = new TwinDCMotor(1, D9_output_pin);
             }
               
               dc_coding_at_pin_09_ptr->setDirAndSpeedCoding(0, motor_dir, motor_speed);
@@ -460,7 +474,7 @@ void CommandHandler::singleDC_F(){
             if (!dc_coding_at_pin_0A_ptr)
             {
                 delete dc_coding_at_pin_0A_ptr;
-                dc_coding_at_pin_0A_ptr = new TwinDCMotor(1, D10_motor_pin);
+                dc_coding_at_pin_0A_ptr = new TwinDCMotor(1, D10_output_pin);
             }
             //Serial.println(motor_dir);
             //Serial.println(motor_speed);
@@ -564,11 +578,11 @@ uint8_t CommandHandler::getActualPin(uint8_t logicalPin,  bool signal_type) {
     switch (logicalPin) {
       
         case 6: 
-          if(signal_type == DIGITAL) return D6_motor_pin;
+          if(signal_type == DIGITAL) return D6_output_pin;
           else if(signal_type == ANALOG) return AN_IN_4;
         
-        case 9: return D9_motor_pin;
-        case 10: return D10_motor_pin;
+        case 9: return D9_output_pin;
+        case 10: return D10_output_pin;
 
         //input pins
         case 4: return D_IN_4;

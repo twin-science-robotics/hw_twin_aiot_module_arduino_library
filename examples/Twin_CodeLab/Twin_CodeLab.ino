@@ -1,5 +1,5 @@
 /*
-  Twin_CodeLab v2.4.2
+  Twin_CodeLab v2.4.3
 
   Bu yazılım Twin CodeLab Web (https://code.twinscience.com/) ya da mobil uygulamaları ile blok kodlama yapabilme imkanı sunan yazılımdır.
   
@@ -9,7 +9,7 @@
 
   https://github.com/twin-science-robotics/hw_twin_aiot_module_arduino_library
 
-  10 Eylül 2025
+  24 Eylül 2025
   Twin Science & Robotics
  
 */
@@ -39,11 +39,11 @@ void setupTwin_F() {
 
 
   
-  pinMode(D6_motor_pin, OUTPUT);  // D6
+  pinMode(D6_output_pin, OUTPUT);  // D6
   
-  pinMode(D9_motor_pin, OUTPUT);  // D6
+  pinMode(D9_output_pin, OUTPUT);  // D6
 
-  pinMode(D10_motor_pin, OUTPUT);  // D6
+  pinMode(D10_output_pin, OUTPUT);  // D6
 
   pinMode(S1pin, OUTPUT); 
   pinMode(S2pin, OUTPUT); 

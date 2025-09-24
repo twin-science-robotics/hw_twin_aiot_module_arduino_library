@@ -13,7 +13,7 @@
 
 extern CRGB leds[NUM_LEDS];
 
-// Firmware version 2.4.1
+// Firmware version 2.4.2
 #define FIRMWARE_VERSION_MAJOR 2
 #define FIRMWARE_VERSION_MINOR 4
 
@@ -27,9 +27,17 @@ extern CRGB leds[NUM_LEDS];
 
 #define QUEUE_LENGTH 256
 
-#define D6_motor_pin 35
-#define D9_motor_pin 36
-#define D10_motor_pin 10
+#define D6_output_pin 35
+#define D9_output_pin 36
+#define D10_output_pin 10
+
+#define SERVO_CHANNEL_6  0
+#define SERVO_CHANNEL_9  1  
+#define SERVO_CHANNEL_10 2
+#define TONE_CHANNEL 3
+#define PWM_CHANNEL_1 4
+#define PWM_CHANNEL_2 5
+#define PWM_CHANNEL_3 6
 
 #define D_IN_4 8
 #define D_IN_8  11
@@ -64,7 +72,7 @@ const uint8_t packet_size = 20;  // header_length + data_length
 const int freq = 490;
 const int resolution = 12;
 
-const char outputpins[3] = {D6_motor_pin, D9_motor_pin, D10_motor_pin};
+const char outputpins[3] = {D6_output_pin, D9_output_pin, D10_output_pin};
 
 
 // Message IDs
