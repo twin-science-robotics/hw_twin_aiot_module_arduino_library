@@ -61,7 +61,7 @@
     Örnek 2)
       D12 girişine buton modülünü takıp dijital okuma yapmak istiyorsanız:
         digitalWrite(14,HIGH); // 14 --> S3 seçim pini HIGH durumuna çekilir, böylece giriş sinyali 9. pine yönlendirilir.
-        analogRead(9);       // 9 --> D12 girişi dijital ise 9. pine bağlıdır.
+        digitalRead(9);       // 9 --> D12 girişi dijital ise 9. pine bağlıdır.
 
 
   -Çıkış Konnektörleri
