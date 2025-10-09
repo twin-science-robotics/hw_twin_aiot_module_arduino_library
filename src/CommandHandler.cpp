@@ -17,28 +17,29 @@ CommandHandler::CommandHandler() {
 void CommandHandler::handleCommand(Packet cmd) {
 
   if (cmd.data[0] == SYNC_BYTE1 && cmd.data[1] == SYNC_BYTE2 && cmd.data[2] == SYNC_BYTE3) {
-    bleChannel.received.message_id = cmd.data[3];
-    bleChannel.received.message_length = cmd.data[4];
+    channel.received.message_id = cmd.data[3];
+    channel.received.message_length = cmd.data[4];
 
-    for (int i = 0; i < bleChannel.received.message_length; i++) {
-      bleChannel.received.message_data[i] = cmd.data[header_length + i];
+    for (int i = 0; i < channel.received.message_length; i++) {
+      channel.received.message_data[i] = cmd.data[header_length + i];
     }
-
+  
+   
     //Serial.print("receiving: ");
-    //for (int i = 0; i < bleChannel.received.message_length + header_length; i++) {
+    //for (int i = 0; i < channel.received.message_length + header_length; i++) {
      // Serial.printf("%02X ", cmd.data[i]);
     //}
    // Serial.println();
 
     applyCommands();
-    getResponse();
+    getResponse(cmd);
   } else {
     //Serial.println("Invalid sync bytes");
   }
 }
 
 void CommandHandler::applyCommands() {
-  switch (bleChannel.received.message_id) {
+  switch (channel.received.message_id) {
 
     case DIGITAL_WRITE:
         digitalWrite_F();
@@ -107,25 +108,28 @@ void CommandHandler::applyCommands() {
 }
 
 
-void CommandHandler::getResponse() {
-  Packet packet = {0};
+void CommandHandler::getResponse(Packet cmd) {
+  Packet packet;
+  memset(packet.data, 0, sizeof(packet.data));
   packet.data[0] = SYNC_BYTE1;
   packet.data[1] = SYNC_BYTE2;
   packet.data[2] = SYNC_BYTE3;
-  packet.data[3] = bleChannel.sent.message_id;
-  packet.data[4] = bleChannel.sent.message_length;
+  packet.data[3] = channel.sent.message_id;
+  packet.data[4] = channel.sent.message_length;
   
-  for(uint8_t i = 0; i < bleChannel.sent.message_length; i++) {
-    packet.data[header_length+i] = bleChannel.sent.message_data[i];
+  for(uint8_t i = 0; i < channel.sent.message_length; i++) {
+    packet.data[header_length+i] = channel.sent.message_data[i];
   }
 
-  uint8_t length = header_length + bleChannel.sent.message_length;
+  uint8_t length = header_length + channel.sent.message_length;
 
   //Serial.print("sending: ");
   //for (int i = 0; i < length; i++) {
   //  Serial.printf("%02X ", packet.data[i]);
   //}
   //Serial.println();
+
+  packet.source = cmd.source ;
 
   if (xQueueSendToBack(responseQueue, &packet, pdMS_TO_TICKS(10)) != pdTRUE) {
     //Serial.println("response queue error");
@@ -219,115 +223,115 @@ void CommandHandler::initTwin_F() {
        }
 
   uint8_t response_data[1] = {1};
-  bleChannel.sent.message_length = 1;
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);
-  bleChannel.sent.message_id = INIT_TWIN;
+  channel.sent.message_length = 1;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);
+  channel.sent.message_id = INIT_TWIN;
 }
 
   
 void CommandHandler::digitalWrite_F() {
-  uint8_t pin = getActualPin(bleChannel.received.message_data[0],DIGITAL);         
+  uint8_t pin = getActualPin(channel.received.message_data[0],DIGITAL);         
   pinMode(pin, OUTPUT);
-  uint8_t value = bleChannel.received.message_data[1];
+  uint8_t value = channel.received.message_data[1];
   digitalWrite(pin, value);
 
-  bleChannel.sent.message_length = 1;
+  channel.sent.message_length = 1;
   uint8_t response_data[1] = {1};
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);
-  bleChannel.sent.message_id = DIGITAL_WRITE;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);
+  channel.sent.message_id = DIGITAL_WRITE;
 }
 
 
 void CommandHandler::digitalRead_F() {
 
-  digitalWrite(chooseSelect(bleChannel.received.message_data[0]), HIGH); 
-  uint8_t pin = getActualPin(bleChannel.received.message_data[0],DIGITAL);         
+  digitalWrite(chooseSelect(channel.received.message_data[0]), HIGH); 
+  uint8_t pin = getActualPin(channel.received.message_data[0],DIGITAL);         
   pinMode(pin, INPUT); 
 
-  uint8_t response_data[2] = {bleChannel.received.message_data[0], digitalRead(pin)};
+  uint8_t response_data[2] = {channel.received.message_data[0], digitalRead(pin)};
 
-  bleChannel.sent.message_length = 2;
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);
-  bleChannel.sent.message_id = DIGITAL_READ;
+  channel.sent.message_length = 2;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);
+  channel.sent.message_id = DIGITAL_READ;
 }
 
 
 void CommandHandler::analogWrite_F(){
-  uint8_t pin = getActualPin(bleChannel.received.message_data[0], DIGITAL);
-  uint16_t value = bleChannel.received.message_data[1];
+  uint8_t pin = getActualPin(channel.received.message_data[0], DIGITAL);
+  uint16_t value = channel.received.message_data[1];
   //Serial.println(value);
-  int channel;
+  int source_channel;
 
   value = map(value,0,255,0,4095) + 1 ; 
   if(value > 4095) value = 4095;
 
    switch(pin) {
-        case D6_output_pin:  channel = PWM_CHANNEL_1; break;
-        case D9_output_pin:  channel = PWM_CHANNEL_2; break;
-        case D10_output_pin: channel = PWM_CHANNEL_3; break;
+        case D6_output_pin:  source_channel = PWM_CHANNEL_1; break;
+        case D9_output_pin:  source_channel = PWM_CHANNEL_2; break;
+        case D10_output_pin: source_channel = PWM_CHANNEL_3; break;
   }
 
   pinMode(pin, OUTPUT);
   ledcDetach(pin);
-  ledcAttachChannel(pin, freq, resolution, channel);
+  ledcAttachChannel(pin, freq, resolution, source_channel);
   ledcWrite(pin, value);
   
-  bleChannel.sent.message_length = 1;
+  channel.sent.message_length = 1;
   uint8_t response_data[1] = {1};  
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);
-  bleChannel.sent.message_id = ANALOG_WRITE;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);
+  channel.sent.message_id = ANALOG_WRITE;
 }
 
 
 void CommandHandler::analogRead_F(){
-  digitalWrite(chooseSelect(bleChannel.received.message_data[0]), LOW);
+  digitalWrite(chooseSelect(channel.received.message_data[0]), LOW);
   analogReadResolution(10); //set the resolution to 10 bits (0-1023)
-  uint8_t pin = getActualPin(bleChannel.received.message_data[0],ANALOG);         
+  uint8_t pin = getActualPin(channel.received.message_data[0],ANALOG);         
   pinMode(pin, INPUT);
   uint16_t analogValue = analogRead(pin);       
-  uint8_t response_data[3] = {bleChannel.received.message_data[0],(uint8_t)(analogValue>> 0),(uint8_t)(analogValue>> 8)};
-  bleChannel.sent.message_length = 3;
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);                 
-  bleChannel.sent.message_id = ANALOG_READ; 
+  uint8_t response_data[3] = {channel.received.message_data[0],(uint8_t)(analogValue>> 0),(uint8_t)(analogValue>> 8)};
+  channel.sent.message_length = 3;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);                 
+  channel.sent.message_id = ANALOG_READ; 
 
 }
 
 void CommandHandler::rgbLED_F(){
   
-  leds[0] = CRGB(bleChannel.received.message_data[1],
-  bleChannel.received.message_data[0],
-  bleChannel.received.message_data[2]);
+  leds[0] = CRGB(channel.received.message_data[1],
+  channel.received.message_data[0],
+  channel.received.message_data[2]);
   FastLED.show();
 
 
   uint8_t response_data[1] = {1};
-  bleChannel.sent.message_length = 1;
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);                 
-  bleChannel.sent.message_id = RGB_LED; 
+  channel.sent.message_length = 1;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);                 
+  channel.sent.message_id = RGB_LED; 
 }
 
 void CommandHandler::playNote_F(){
-  uint8_t pin = getActualPin(bleChannel.received.message_data[0], DIGITAL);;
+  uint8_t pin = getActualPin(channel.received.message_data[0], DIGITAL);;
   pinMode(pin, OUTPUT);
 
-  uint16_t note = bleChannel.received.message_data[1] + (bleChannel.received.message_data[2] << 8);
-  uint16_t duration = bleChannel.received.message_data[3] + (bleChannel.received.message_data[4] << 8);
+  uint16_t note = channel.received.message_data[1] + (channel.received.message_data[2] << 8);
+  uint16_t duration = channel.received.message_data[3] + (channel.received.message_data[4] << 8);
 
   ledcAttachChannel(pin,2700,8,TONE_CHANNEL);
   ledcWriteTone(pin, note); 
-  delay(duration);
+  vTaskDelay(pdMS_TO_TICKS(duration));
   ledcWriteTone(pin, 0);
   ledcDetach(pin);
 
-  bleChannel.sent.message_length = 1;
+  channel.sent.message_length = 1;
   uint8_t response_data[1] = {1};  
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);
-  bleChannel.sent.message_id = PLAYNOTE;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);
+  channel.sent.message_id = PLAYNOTE;
 }
 void CommandHandler::pianoButton_F(){
   uint16_t touch = 0;
   uint8_t response = 0;
-  uint8_t pin = map_piano(bleChannel.received.message_data[0]);
+  uint8_t pin = map_piano(channel.received.message_data[0]);
   analogReadResolution(10); //set the resolution to 10 bits (0-1023)
   pinMode(pin,INPUT_PULLUP);
   vTaskDelay(pdMS_TO_TICKS(5));
@@ -339,9 +343,9 @@ void CommandHandler::pianoButton_F(){
   else response = 0;
 
   uint8_t response_data[2] = {pin,response};
-  bleChannel.sent.message_length = 2;
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);                 
-  bleChannel.sent.message_id = PIANO_BUTTON;
+  channel.sent.message_length = 2;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);                 
+  channel.sent.message_id = PIANO_BUTTON;
 }
 
 void CommandHandler::touchPad_F(){
@@ -356,9 +360,9 @@ void CommandHandler::touchPad_F(){
 
 
   uint8_t response_data[1] = {response};
-  bleChannel.sent.message_length = 1;
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);                 
-  bleChannel.sent.message_id = TOUCH_PAD;
+  channel.sent.message_length = 1;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);                 
+  channel.sent.message_id = TOUCH_PAD;
 }
 void CommandHandler::hcsr04_F(){
 
@@ -378,14 +382,14 @@ void CommandHandler::hcsr04_F(){
   if (distance > 400) distance = 400;
 
   uint8_t response_data[2] = {(uint8_t)(distance >> 0), (uint8_t)(distance >> 8)};
-  bleChannel.sent.message_length = 2;
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);                 
-  bleChannel.sent.message_id = HCSR04; 
+  channel.sent.message_length = 2;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);                 
+  channel.sent.message_id = HCSR04; 
 
 }
 void CommandHandler::servo_F(){
-  uint8_t pin = bleChannel.received.message_data[0];
-  int degree = bleChannel.received.message_data[1] + (bleChannel.received.message_data[2] << 8) ;
+  uint8_t pin = channel.received.message_data[0];
+  int degree = channel.received.message_data[1] + (channel.received.message_data[2] << 8) ;
  
   if(pin == 6) {
     if (!servo6.attached()) 
@@ -405,14 +409,14 @@ void CommandHandler::servo_F(){
   
 
   uint8_t response_data[1] = {1};
-  bleChannel.sent.message_length = 1;
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);                 
-  bleChannel.sent.message_id = SERVO; 
+  channel.sent.message_length = 1;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);                 
+  channel.sent.message_id = SERVO; 
 }
 
 void CommandHandler::tempAndhum_F(){
-  digitalWrite(chooseSelect(bleChannel.received.message_data[0]), HIGH);
-  uint8_t pin = getActualPin(bleChannel.received.message_data[0],DIGITAL);
+  digitalWrite(chooseSelect(channel.received.message_data[0]), HIGH);
+  uint8_t pin = getActualPin(channel.received.message_data[0],DIGITAL);
   DHT11 dht11(pin);   
   int temperature = 0;
   int humidity = 0;
@@ -431,20 +435,20 @@ void CommandHandler::tempAndhum_F(){
     //}
   
 
-  uint8_t response_data[3] = {bleChannel.received.message_data[0],(uint8_t)temperature,(uint8_t)humidity};
-  bleChannel.sent.message_length = 3;
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);                 
-  bleChannel.sent.message_id = TEMPRATUREHUMIDITY; 
+  uint8_t response_data[3] = {channel.received.message_data[0],(uint8_t)temperature,(uint8_t)humidity};
+  channel.sent.message_length = 3;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);                 
+  channel.sent.message_id = TEMPRATUREHUMIDITY; 
 
 }
 
 void CommandHandler::singleDC_F(){
   
 
-  uint8_t motor_dir = (bleChannel.received.message_data[2] >> 7) & 1;
-  uint8_t motor_speed = (bleChannel.received.message_data[2] & 0x7f);
-  Serial.println(motor_dir);
-        if (bleChannel.received.message_data[1] == 0x06)
+  uint8_t motor_dir = (channel.received.message_data[2] >> 7) & 1;
+  uint8_t motor_speed = (channel.received.message_data[2] & 0x7f);
+  //Serial.println(motor_dir);
+        if (channel.received.message_data[1] == 0x06)
         {
             if (!dc_coding_at_pin_06_ptr)
             {
@@ -458,7 +462,7 @@ void CommandHandler::singleDC_F(){
             dc_coding_at_pin_06_ptr->setDirAndSpeedCoding(0, motor_dir, motor_speed);
          
         }
-        else if (bleChannel.received.message_data[1] == 0x09)
+        else if (channel.received.message_data[1] == 0x09)
         {
             if (!dc_coding_at_pin_09_ptr)
             {
@@ -469,7 +473,7 @@ void CommandHandler::singleDC_F(){
               dc_coding_at_pin_09_ptr->setDirAndSpeedCoding(0, motor_dir, motor_speed);
               
         }
-        else if (bleChannel.received.message_data[1] == 0x0A)
+        else if (channel.received.message_data[1] == 0x0A)
         {
             if (!dc_coding_at_pin_0A_ptr)
             {
@@ -484,12 +488,10 @@ void CommandHandler::singleDC_F(){
         }
     
   
- 
-  
-  bleChannel.sent.message_length = 1;
+  channel.sent.message_length = 1;
   uint8_t response_data[1] = {1};  
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);
-  bleChannel.sent.message_id = SINGLE_DC;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);
+  channel.sent.message_id = SINGLE_DC;
   
 }
 void  CommandHandler::doubleDC_F(){
@@ -499,20 +501,20 @@ void  CommandHandler::doubleDC_F(){
 
   doubledc = new HardwareSerial(1);
 
-  doubledc->begin(19200, SERIAL_8N1, -1,getActualPin(bleChannel.received.message_data[0],DIGITAL));
+  doubledc->begin(19200, SERIAL_8N1, -1,getActualPin(channel.received.message_data[0],DIGITAL));
 
 
-  if (bleChannel.received.message_data[1] == 0x01){
-    motor_1_dir = (bleChannel.received.message_data[2] >> 7) & 1 ;
-    motor_1_speed = bleChannel.received.message_data[2] & 0x7f ;
+  if (channel.received.message_data[1] == 0x01){
+    motor_1_dir = (channel.received.message_data[2] >> 7) & 1 ;
+    motor_1_speed = channel.received.message_data[2] & 0x7f ;
   }
-  else if(bleChannel.received.message_data[1] == 0x02){  
-    motor_2_dir = (bleChannel.received.message_data[2] >> 7) & 1 ;
-    motor_2_speed = bleChannel.received.message_data[2] & 0x7f ;
+  else if(channel.received.message_data[1] == 0x02){  
+    motor_2_dir = (channel.received.message_data[2] >> 7) & 1 ;
+    motor_2_speed = channel.received.message_data[2] & 0x7f ;
   }
-  else if(bleChannel.received.message_data[1] == 0x03){
-    motor_1_dir = (bleChannel.received.message_data[2] >> 7) & 1 ;
-    motor_1_speed = bleChannel.received.message_data[2] & 0x7f ;
+  else if(channel.received.message_data[1] == 0x03){
+    motor_1_dir = (channel.received.message_data[2] >> 7) & 1 ;
+    motor_1_speed = channel.received.message_data[2] & 0x7f ;
     motor_2_dir = motor_1_dir ;
     motor_2_speed = motor_1_speed ;
   }
@@ -529,26 +531,26 @@ void  CommandHandler::doubleDC_F(){
     }
   
   doubledc->flush();
-  pinMode(getActualPin(bleChannel.received.message_data[0],DIGITAL), OUTPUT);
-  digitalWrite(getActualPin(bleChannel.received.message_data[0],DIGITAL), LOW);
+  pinMode(getActualPin(channel.received.message_data[0],DIGITAL), OUTPUT);
+  digitalWrite(getActualPin(channel.received.message_data[0],DIGITAL), LOW);
 
   uint8_t response_data[1] = {1};
-  bleChannel.sent.message_length = 1;   
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);             
-  bleChannel.sent.message_id = DOUBLE_DC;
+  channel.sent.message_length = 1;   
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);             
+  channel.sent.message_id = DOUBLE_DC;
 
 }
 void CommandHandler::getfirmwareVersion_F() {
   uint8_t response_data[2] = {FIRMWARE_VERSION_MINOR, FIRMWARE_VERSION_MAJOR};
-  bleChannel.sent.message_length = 2;
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);
-  bleChannel.sent.message_id = GETFIRMWAREVERSION;
+  channel.sent.message_length = 2;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);
+  channel.sent.message_id = GETFIRMWAREVERSION;
 }
 
 void CommandHandler::ledMatrix_F(){
   uint8_t pattern[8]= {0};
   //static uint8_t lastpattern[8] = {0};
-  memcpy(pattern, bleChannel.received.message_data, sizeof(pattern));
+  memcpy(pattern, channel.received.message_data, sizeof(pattern));
 
   //if(memcmp(pattern,lastpattern,sizeof(pattern))!=0)
       if (xQueueSendToBack(patternQueue, &pattern, pdMS_TO_TICKS(10)) != pdTRUE) {
@@ -558,9 +560,9 @@ void CommandHandler::ledMatrix_F(){
   
   //memcpy(lastpattern, pattern, sizeof(lastpattern));
   uint8_t response_data[1] = {1};
-  bleChannel.sent.message_length = 1;
-  memcpy(bleChannel.sent.message_data, response_data, bleChannel.sent.message_length);                 
-  bleChannel.sent.message_id = LED_MATRIX; 
+  channel.sent.message_length = 1;
+  memcpy(channel.sent.message_data, response_data, channel.sent.message_length);                 
+  channel.sent.message_id = LED_MATRIX; 
 }
 
 uint8_t CommandHandler::chooseSelect(uint8_t pin) {
@@ -571,6 +573,16 @@ uint8_t CommandHandler::chooseSelect(uint8_t pin) {
     case 8 :return S2pin;
     case 11 :return S3pin;
     case  12: return S3pin;
+  }
+}
+
+uint8_t CommandHandler::map_piano(uint8_t pin){
+
+  switch (pin) {
+    case 8: return 1;
+    case 9: return 2;
+    case 10: return 3;
+    case 12: return 4;
   }
 }
 
@@ -598,16 +610,6 @@ uint8_t CommandHandler::getActualPin(uint8_t logicalPin,  bool signal_type) {
         // Unmapped pins remain unchanged
         default: return logicalPin; 
     }
-}
-
-uint8_t CommandHandler::map_piano(uint8_t pin){
-
-  switch (pin) {
-    case 8: return 1;
-    case 9: return 2;
-    case 10: return 3;
-    case 12: return 4;
-  }
 }
 uint8_t CommandHandler::reverseBits(uint8_t b) {
   b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;

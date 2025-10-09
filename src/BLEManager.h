@@ -7,22 +7,6 @@
 #include <BLE2902.h>
 #include "Constants.h"
 
-struct message_st {
-	uint8_t	  message_length ;
-	uint8_t	  message_id ;
-	uint8_t	  message_data[data_length];
-};
-
-struct channel_st {
-	message_st received;
-	message_st sent;
-};
-
-struct Packet {
-  uint8_t data[packet_size];
-};
-
-
 class BLEManager {
 public:
   BLEManager();
@@ -55,8 +39,8 @@ private:
 };
 
 extern BLEManager bleManager;
-extern channel_st bleChannel;
-extern QueueHandle_t bleQueue;
+extern channel_st channel;
+extern QueueHandle_t commandQueue;
 extern QueueHandle_t responseQueue;
  
 

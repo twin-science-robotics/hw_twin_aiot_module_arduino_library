@@ -20,7 +20,7 @@ void BLEManager::setup(const String& moduleName) {
     
   //BLEDevice::setMTU(23);
 
-  pCharacteristic->setCallbacks(new MyCharacteristicCallbacks(bleQueue));
+  pCharacteristic->setCallbacks(new MyCharacteristicCallbacks(commandQueue));
   pCharacteristic->addDescriptor(new BLE2902());
   pCharacteristic->setValue("0"); 
   pService->start();
@@ -81,7 +81,8 @@ void BLEManager::MyCharacteristicCallbacks::onWrite(BLECharacteristic *pChar) {
   if(value.length() > 0) {
     size_t copyLength = min(value.length(), sizeof(cmd.data));
     memcpy(cmd.data, value.c_str(), copyLength);
-    if (xQueueSendToBack(bleQueue, &cmd, 0) != pdTRUE) {
+    cmd.source = CHAN_BLE;
+    if (xQueueSendToBack(commandQueue, &cmd, 0) != pdTRUE) {
       //Serial.println("blequeue error");
     }
     //vTaskDelayUntil(&xLastWakeTime, xFrequency);

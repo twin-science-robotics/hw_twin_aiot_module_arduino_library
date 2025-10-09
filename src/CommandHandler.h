@@ -23,7 +23,7 @@ public:
   CommandHandler();
   void handleCommand(Packet cmd);
   void applyCommands();
-  void getResponse();
+  void getResponse(Packet cmd);
   void initTwin_F();
   uint8_t reverseBits(uint8_t b);
   void shiftOutAll(uint8_t colData, uint8_t rowData);

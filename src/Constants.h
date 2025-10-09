@@ -13,9 +13,9 @@
 
 extern CRGB leds[NUM_LEDS];
 
-// Firmware version 2.4.2
+// Firmware version 2.5.0
 #define FIRMWARE_VERSION_MAJOR 2
-#define FIRMWARE_VERSION_MINOR 4
+#define FIRMWARE_VERSION_MINOR 5
 
 
 #define SYNC_BYTE1 0xAA
@@ -73,6 +73,24 @@ const int freq = 490;
 const int resolution = 12;
 
 const char outputpins[3] = {D6_output_pin, D9_output_pin, D10_output_pin};
+
+
+struct message_st {
+	uint8_t	  message_length ;
+	uint8_t	  message_id ;
+	uint8_t	  message_data[data_length];
+};
+
+struct channel_st {
+	message_st received;
+	message_st sent;
+};
+
+enum CommunicationChannel { CHAN_NONE, CHAN_BLE, CHAN_USB };
+struct Packet {
+  CommunicationChannel source;
+  uint8_t data[packet_size];
+};
 
 
 // Message IDs

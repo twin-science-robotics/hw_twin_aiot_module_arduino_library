@@ -1,15 +1,17 @@
 /*
-  Twin_CodeLab v2.4.3
+  Twin_CodeLab v2.5.0
 
   Bu yazılım Twin CodeLab Web (https://code.twinscience.com/) ya da mobil uygulamaları ile blok kodlama yapabilme imkanı sunan yazılımdır.
   
   Arduino IDE üzerinden Twin AIoT modülüne gömülen herhangi bir arduino kodundan sonra Twin Codelab ile blok kodlama yapmak isterseniz bu yazılımı yükleniz gereklidir.
+  
+  !!! COK ONEMLI !!!: Tools sekmesinden USB CDC on Boot seçeneği "Enabled" olarak seçilmelidir. (USB ile kod çalıştırabilmek için gereklidir)
 
   Temel olarak bu kod Twin Codelab uygulamalarını çalıştıran donanımlar (bilgisayar, tablet, telefon vb) ile Twin AIoT modülü arasında, Bluetooth bağlantısı üzerinden veri alışverişi yapar ve blok kodlarını çalıştırır.
 
   https://github.com/twin-science-robotics/hw_twin_aiot_module_arduino_library
 
-  24 Eylül 2025
+  09 Ekim 2025
   Twin Science & Robotics
  
 */
@@ -17,6 +19,9 @@
 #include "Constants.h"
 #include "BLEManager.h"
 #include "CommandHandler.h"
+
+SemaphoreHandle_t serialMutex;
+SemaphoreHandle_t canSendPacketSemaphore;
 
 // Modüle güç verildiğinde beliren Twin Science logo animasyonu
 uint8_t twinlogo[][8]= {
@@ -36,13 +41,8 @@ QueueHandle_t patternQueue;
 portMUX_TYPE ledmatrix_mux = portMUX_INITIALIZER_UNLOCKED;
 // Modül setup 
 void setupTwin_F() {
-
-
-  
   pinMode(D6_output_pin, OUTPUT);  // D6
-  
   pinMode(D9_output_pin, OUTPUT);  // D6
-
   pinMode(D10_output_pin, OUTPUT);  // D6
 
   pinMode(S1pin, OUTPUT); 
@@ -50,23 +50,12 @@ void setupTwin_F() {
   pinMode(S3pin, OUTPUT);
 
   pinMode(D_IN_4, INPUT);   
-  
-
   pinMode(D_IN_8, INPUT);   
-  
-
   pinMode(D_IN_12, INPUT);   
-  
-
   pinMode(AN_IN_4, INPUT);   
-  
-
   pinMode(AN_IN_8, INPUT);   
-  
-
   pinMode(AN_IN_12, INPUT);   
   
-
   pinMode(latchPin, OUTPUT);
   pinMode(clockPin, OUTPUT);
   pinMode(dataPin, OUTPUT);
@@ -76,16 +65,17 @@ void setupTwin_F() {
 
   FastLED.addLeds<WS2812B,RGB_PIN , RGB>(leds, 1);
   FastLED.setBrightness(64);
-  
 }
 
 BLEManager bleManager;
 CommandHandler commandHandler;
 
-QueueHandle_t bleQueue;
+QueueHandle_t commandQueue;
 QueueHandle_t responseQueue;
 
-channel_st bleChannel;
+channel_st channel;
+volatile bool isUsbConnected = false;
+
 CRGB leds[NUM_LEDS];
 
 // Bluetooth ile alınan veriler işlenir
@@ -95,10 +85,23 @@ void processingTask(void *pvParameters) {
   const TickType_t xFrequency = pdMS_TO_TICKS(10); 
   
   while(1) {
-    if (xQueueReceive(bleQueue, &receivedCmd, pdMS_TO_TICKS(100)) == pdTRUE) {     
-      commandHandler.handleCommand(receivedCmd);     
+    if (xQueueReceive(commandQueue, &receivedCmd, pdMS_TO_TICKS(10)) == pdTRUE) {    //portMAX_DELAY 
+      commandHandler.handleCommand(receivedCmd);    
     }
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
+  }
+}
+
+void sendUSB(const Packet& packet) {
+  if (xSemaphoreTake(canSendPacketSemaphore, (TickType_t)0) == pdTRUE) {
+    if (xSemaphoreTake(serialMutex, portMAX_DELAY) == pdTRUE) {
+      uint8_t packet_length = packet.data[4] + header_length;
+      Serial.write(packet.data, packet_length);
+      xSemaphoreGive(serialMutex);
+    }
+  }
+  else {
+  //Serial.println("Semaphore alınamadı, paket gönderilemedi.");
   }
 }
 
@@ -106,17 +109,97 @@ void processingTask(void *pvParameters) {
 void responseTask(void *pvParameters) {
   Packet packet;
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  const TickType_t xFrequency = pdMS_TO_TICKS(10); 
+  const TickType_t xFrequency = pdMS_TO_TICKS(5); 
   
   while(1) {
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
 
-    if (xQueueReceive(responseQueue, &packet, pdMS_TO_TICKS(10)) == pdTRUE) {
-      bleManager.sendResponse(packet);
+    if (xQueueReceive(responseQueue, &packet, pdMS_TO_TICKS(5)) == pdTRUE) {
+      if(packet.source == CHAN_BLE)
+        bleManager.sendResponse(packet);
+      else if(packet.source == CHAN_USB) sendUSB(packet);
     }
   }
 }
 
+bool readPacketFromSerial(Packet& packet) {
+  // 1. Senkronizasyon baytını bekle
+  // readBytesUntil gibi bir fonksiyonla ilk senkron baytını arayabiliriz,
+  // ama basitlik için bayt bayt okuma daha nettir.
+  while (Serial.available() > 0 && Serial.read() != SYNC_BYTE1){
+    vTaskDelay(pdMS_TO_TICKS(5));
+  }
+
+  // Seri portta yeterli veri yoksa veya ilk bayt bulunamadıysa çık
+  if (Serial.available() < (header_length - 1)) {
+    return false;
+  }
+
+  // 2. Başlığın geri kalanını oku
+  uint8_t header[header_length];
+  header[0] = SYNC_BYTE1; // İlkini zaten bulduk
+  size_t read_count = Serial.readBytes(&header[1], header_length - 1);
+
+  if (read_count != (header_length - 1)) {
+    // Beklenen başlık uzunluğu okunamadı, hata.
+    return false;
+  }
+
+  // 3. Başlığı doğrula
+  if (header[1] != SYNC_BYTE2 || header[2] != SYNC_BYTE3) {
+    // Senkronizasyon baytları yanlış, bu geçerli bir paket değil.
+    return false;
+  }
+  
+  // 4. Veri uzunluğunu al ve veriyi oku
+  uint8_t payload_length = header[4];
+  
+  // Başlığı pakete kopyala
+  memcpy(packet.data, header, header_length);
+
+  if (payload_length > 0) {
+    if (Serial.available() < payload_length) {
+      // Verinin tamamı henüz gelmemiş, bir sonraki döngüde tekrar deneriz.
+      // Not: Bu basit yaklaşımda yarım paketler atılır. Daha gelişmiş bir yapı
+      // state machine ile durumu koruyabilir. Ama çoğu durumda bu yeterlidir.
+      return false;
+    }
+    // Veriyi başlığın hemen arkasına oku
+    read_count = Serial.readBytes(&packet.data[header_length], payload_length);
+    if (read_count != payload_length) {
+      // Veri okunurken bir sorun oldu.
+      return false;
+    }
+  }
+
+  // Paket başarıyla ve tamamen okundu
+  return true;
+}
+
+
+void usbTask(void *pvParameters) {
+  Packet usbPacket;
+
+  while(1) {
+       
+    if (Serial.available() >= header_length) {
+      
+      memset(&usbPacket, 0, sizeof(Packet));
+      if (readPacketFromSerial(usbPacket)) {
+        // Geçerli bir paket okundu, kuyruğa gönder
+        usbPacket.source = CHAN_USB;
+        isUsbConnected = true;
+        xSemaphoreGive(canSendPacketSemaphore);
+        if (xQueueSendToBack(commandQueue, &usbPacket, 0) != pdTRUE) {
+          // Kuyruk dolu, hata yönetimi
+          // Serial.println("usbqueue error");
+        }
+      }
+    }
+    
+    vTaskDelay(pdMS_TO_TICKS(20)); //yogun haberlesmede sorun olursa 10ms test edilebilir
+  }
+}
 // Led matrixi yenileyen fonksiyon
 void ledMatrixTask(void *pvParameters) {
 
@@ -177,7 +260,7 @@ void connTask(void *pvParameters) {
   while(1) {
 
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
-    currentConnectionState = bleManager.isConnected();
+    currentConnectionState = bleManager.isConnected()|| isUsbConnected;
     //Serial.println(currentConnectionState);
     
     if(currentConnectionState != prevConnectionState) {
@@ -200,7 +283,7 @@ void bleblinkTask(void *pvParameters) {
 
   while(1) {
 
-    if(bleManager.isConnected() == false){
+    if(!bleManager.isConnected() && !isUsbConnected){
       //Serial.println("led is on");
 
       leds[0] = CRGB(0,0,255);
@@ -226,7 +309,7 @@ void scrollIDTask(void *pvParameters) {
 
   while(1) {
 
-    if(bleManager.isConnected() == false){
+    if(!bleManager.isConnected() && !isUsbConnected){
       
       scrollID(offset);
       offset++;
@@ -298,16 +381,16 @@ void scrollID(int offset){
 
 
 void setup() {
-  //Serial.begin(115200);
-  
-  
+  Serial.begin(9600);
   // Kuyrukları oluştur
-  bleQueue = xQueueCreate(QUEUE_LENGTH, sizeof(Packet));
+  commandQueue = xQueueCreate(QUEUE_LENGTH, sizeof(Packet));
   responseQueue = xQueueCreate(QUEUE_LENGTH, sizeof(Packet));
   patternQueue = xQueueCreate(QUEUE_LENGTH, sizeof(Packet));
-  moduleName = calculateModuleName() ;
+  serialMutex = xSemaphoreCreateMutex();
+  canSendPacketSemaphore = xSemaphoreCreateBinary();
 
- //Setups
+  moduleName = calculateModuleName() ;
+  //Setups
   bleManager.setup(moduleName);
   setupTwin_F();
   commandHandler.initTwin_F();
@@ -317,11 +400,10 @@ void setup() {
   xTaskCreate(responseTask, "ResponseTask", 4096, NULL, 3, NULL);
   xTaskCreate(ledMatrixTask, "ledmatrixTask", 4096, NULL, 1, NULL);
   LogoAnimate();
+  xTaskCreate(usbTask, "USBTask", 4096, NULL, 1, NULL);
   xTaskCreate(connTask, "ConnectionTask", 4096, NULL, 1, NULL);
   xTaskCreate(bleblinkTask, "bleblinkTask", 4096, NULL, 1, NULL);
   xTaskCreate(scrollIDTask, "scrollIDTask", 4096, NULL, 1, NULL);
-
-  
   //Serial.println(moduleName);
 }
 
@@ -382,4 +464,5 @@ String calculateModuleName() {
   
   return "Twin " + colorNames[modVal / 36] + colorNames[(modVal % 36) / 6] + colorNames[modVal % 6];
 }
+
 
